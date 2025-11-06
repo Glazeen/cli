@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { outro } from "@clack/prompts";
+import { log, outro } from "@clack/prompts";
 import { Command } from "commander";
 import { registerAllCommands } from "./utils/register-commands";
 import packageJson from "../package.json";
@@ -22,6 +22,6 @@ async function main() {
 }
 
 main().catch((err) => {
-    console.error(`Unexpected error: ${(err as Error).message}`);
+    log.error(`Unexpected error: ${(err as Error).message}`);
     process.exit(1);
 });

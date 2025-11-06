@@ -3,6 +3,7 @@ import path from "path";
 import { pathToFileURL } from "url";
 import { Command } from "commander";
 import { info, bold } from "./styling";
+import { log } from "@clack/prompts";
 
 export async function registerAllCommands(program: Command): Promise<void> {
     const isDev = __filename.endsWith(".ts");
@@ -42,14 +43,14 @@ export async function registerAllCommands(program: Command): Promise<void> {
 
             if (register) {
                 register(program);
-                console.log(
+                log.info(
                     `${info} Loaded command: ${bold(
                         entry.name.replace(/\.(ts|js)$/, "")
                     )}`
                 );
             }
         } catch (err) {
-            console.error(
+            log.error(
                 `Failed to load command module "${entry.name}": ${
                     (err as Error).message
                 }`

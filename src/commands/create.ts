@@ -1,5 +1,6 @@
 import { Command } from "commander";
 import { success, bold } from "../utils/styling";
+import { log } from "@clack/prompts";
 
 const commandConfiguration = {
     name: "create",
@@ -7,9 +8,7 @@ const commandConfiguration = {
 };
 
 const handler = (projectName: string) => {
-    console.log(
-        `${success} Project ${bold(projectName)} created successfully!`
-    );
+    log.info(`${success} Project ${bold(projectName)} created successfully!`);
 };
 
 export function register(program: Command) {
