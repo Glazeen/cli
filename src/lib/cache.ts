@@ -32,3 +32,33 @@ export const init = async () => {
 
     s.stop(`${info} Cache initialized.`);
 };
+
+export const getTemplates = async () => {
+    const templatesFolders = fs.readdirSync(
+        path.join(GLOBAL_CACHE_PATH, ".boilerplates"),
+        { withFileTypes: true }
+    );
+
+    // filter out the folders that start with a dot
+    const filteredTemplatesFolders = templatesFolders.filter(
+        (item) => item.isDirectory() && item.name !== ".git"
+    );
+
+    // map the folders to the config.json file
+    const templates = filteredTemplatesFolders.map((folder) => ({
+        path: path.join(GLOBAL_CACHE_PATH, ".boilerplates", folder.name),
+        config: JSON.parse(
+            fs.readFileSync(
+                path.join(
+                    GLOBAL_CACHE_PATH,
+                    ".boilerplates",
+                    folder.name,
+                    "glazeen.config.json"
+                ),
+                "utf-8"
+            )
+        ) as { name: string; description: string }
+    }));
+
+    return templates;
+};
