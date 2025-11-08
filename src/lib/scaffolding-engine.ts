@@ -2,10 +2,6 @@ import fs from "fs-extra";
 import path from "path";
 import Handlebars from "handlebars";
 
-// This module contains the logic for copying template files,
-// processing handlebars placeholders, and writing the output to the destination.
-// It skips copying the template configuration file.
-
 const CONFIG_FILE = "glazeen.config.json";
 
 export async function scaffold(
@@ -13,6 +9,14 @@ export async function scaffold(
     targetDir: string,
     variables: Record<string, any>
 ): Promise<void> {
+    Handlebars.registerHelper("eq", (a: string, b: string) => {
+        return a === b;
+    });
+
+    Handlebars.registerHelper("neq", (a: string, b: string) => {
+        return a !== b;
+    });
+
     await fs.ensureDir(targetDir);
 
     const items = await fs.readdir(templateDir, { withFileTypes: true });
