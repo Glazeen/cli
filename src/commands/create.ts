@@ -2,7 +2,7 @@ import { Command } from "commander";
 import { success, bold } from "../utils/styling";
 import { log, select, text, confirm, tasks } from "@clack/prompts";
 import { getTemplates } from "../lib/cache";
-import { COMMAND_POOL } from "../lib/postprocessor";
+import { COMMAND_POOL, runPostCreateActions } from "../lib/postprocessor";
 import { scaffold } from "../lib/scaffolding-engine";
 import path from "path";
 
@@ -51,15 +51,22 @@ const handler = async (projectName: string) => {
                 });
 
                 if (response) {
-                    typeof prompt.choices?.Yes === "string"
-                        ? commands.push(prompt.choices.Yes)
-                        : commands.push(...(prompt.choices?.Yes || []));
+                    if (
+                        prompt.choices?.Yes &&
+                        prompt.choices?.Yes?.length > 0
+                    ) {
+                        typeof prompt.choices?.Yes === "string"
+                            ? commands.push(prompt.choices.Yes)
+                            : commands.push(...(prompt.choices?.Yes || []));
+                    }
 
                     variables[prompt.key!] = "Yes";
                 } else {
-                    typeof prompt.choices?.No === "string"
-                        ? commands.push(prompt.choices.No)
-                        : commands.push(...(prompt.choices?.No || []));
+                    if (prompt.choices?.No && prompt.choices?.No?.length > 0) {
+                        typeof prompt.choices?.No === "string"
+                            ? commands.push(prompt.choices.No)
+                            : commands.push(...(prompt.choices?.No || []));
+                    }
                     variables[prompt.key!] = "No";
                 }
 
@@ -74,9 +81,12 @@ const handler = async (projectName: string) => {
             //         }))
             //     });
         }
-
-        COMMAND_POOL.push(...commands);
     }
+    COMMAND_POOL.push(...(template?.config.post_create || []));
+    COMMAND_POOL.push(...commands.map((command) => ({ command })));
+
+    console.log(JSON.stringify(COMMAND_POOL, null, 2));
+
     await tasks([
         {
             title: "Copying files",
@@ -91,9 +101,9 @@ const handler = async (projectName: string) => {
         {
             title: "Running post-create actions",
             task: async () => {
-                // await runPostCreateActions(
-                //     path.join(process.cwd(), projectName)
-                // );
+                await runPostCreateActions(
+                    path.join(process.cwd(), projectName)
+                );
             }
         }
     ]);

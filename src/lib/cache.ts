@@ -24,11 +24,8 @@ export const init = async () => {
     }
 
     const fetch = await git().fetch();
-
-    if (fetch.updated.length > 0) {
-        s.message(`${info} Pulling latest changes from remote`);
-        await git().pull();
-    }
+    s.message(`${info} Pulling latest changes from remote`);
+    await git().pull();
 
     s.stop(`${info} Cache initialized.`);
 };
