@@ -5,6 +5,7 @@ import { Command } from "commander";
 import { registerAllCommands } from "./utils/register-commands";
 import packageJson from "../package.json";
 import { renderTitle } from "./utils/styling";
+import * as cache from "./lib/cache";
 
 async function main() {
     renderTitle();
@@ -16,6 +17,8 @@ async function main() {
 
     await registerAllCommands(program);
 
+    // init the cache
+    await cache.init();
     await program.parseAsync(process.argv);
 
     outro("👋 Done");
