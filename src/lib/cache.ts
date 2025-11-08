@@ -57,7 +57,7 @@ export const getTemplates = async () => {
                 ),
                 "utf-8"
             )
-        ) as { name: string; description: string }
+        ) as GlazeenConfig
     }));
 
     return templates;

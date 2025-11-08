@@ -1,9 +1,14 @@
 interface BasePrompt {
     key?: string;
     message: string;
-    default: unknown;
+    default: string;
     response_message?: string;
 }
+
+type ConfirmChoices = {
+    Yes?: string | string[];
+    No?: string | string[];
+};
 
 type PromptChoices = {
     [key: string]: string | string[];
@@ -14,12 +19,17 @@ interface TextPrompt extends BasePrompt {
     choices?: never;
 }
 
+interface ConfirmablePrompt extends BasePrompt {
+    type: "confirm";
+    choices?: ConfirmChoices;
+}
+
 interface SelectablePrompt extends BasePrompt {
-    type: "confirm" | "select" | "multiselect";
+    type: "select" | "multiselect";
     choices?: PromptChoices;
 }
 
-type Prompt = TextPrompt | SelectablePrompt;
+type Prompt = TextPrompt | ConfirmablePrompt | SelectablePrompt;
 
 interface GlazeenConfig {
     name: string;

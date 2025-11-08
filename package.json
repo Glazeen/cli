@@ -4,7 +4,7 @@
     "description": "CLI to scaffold Glazeen standard projects",
     "scripts": {
         "build": "rm -rf dist && tsc",
-        "dev": "tsx watch src/index.ts",
+        "dev": "tsx src/index.ts",
         "start": "node dist/index.js",
         "prepublishOnly": "pnpm build",
         "changeset": "changeset",
