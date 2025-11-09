@@ -1,6 +1,6 @@
 {
     "name": "@glazeen/cli",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "description": "CLI to scaffold Glazeen standard projects",
     "scripts": {
         "build": "rm -rf dist && tsc",

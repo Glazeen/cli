@@ -1,14 +1,8 @@
 import fs from "fs";
 import path from "path";
-import envPaths from "env-paths";
-import { git } from "../utils/git";
 import { spinner } from "@clack/prompts";
 import { info } from "../utils/styling";
-
-export const GLOBAL_CACHE_PATH = path.join(
-    envPaths("@glazeen-cli").cache,
-    "git"
-);
+import { GLOBAL_CACHE_PATH } from "../utils/constants";
 
 export const init = async () => {
     const s = spinner({ indicator: "timer" });
@@ -22,7 +16,10 @@ export const init = async () => {
     if (!fs.existsSync(repoDir)) {
         fs.mkdirSync(repoDir, { recursive: true });
     }
-
+    const simpleGit = (await import("simple-git")).default;
+    const git = simpleGit({
+        baseDir: path.join(GLOBAL_CACHE_PATH, ".boilerplates")
+    });
     // Clone into the current directory (.) so the repo is at repoDir
     if (!fs.existsSync(path.join(repoDir, ".git"))) {
         s.message(`${info} Cloning boilerplates repo to ${repoDir}`);
