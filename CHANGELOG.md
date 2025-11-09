@@ -1,5 +1,11 @@
 # @glazeen/cli
 
+## 1.1.0
+
+### Minor Changes
+
+- Fix a bug where the cache was not initializing properly
+
 ## 1.0.1
 
 ### Patch Changes

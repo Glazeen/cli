@@ -17,15 +17,23 @@ export const init = async () => {
         fs.mkdirSync(GLOBAL_CACHE_PATH, { recursive: true });
     }
 
-    // if the cache folder is empty clone the boilerplates repo with simplegit
-    if (fs.readdirSync(GLOBAL_CACHE_PATH).length === 0) {
-        s.message(`${info} Cloning boilerplates repo to ${GLOBAL_CACHE_PATH}`);
-        await git().clone("https://github.com/Glazeen/.boilerplates");
+    // Ensure the repo directory exists before using simple-git
+    const repoDir = path.join(GLOBAL_CACHE_PATH, ".boilerplates");
+    if (!fs.existsSync(repoDir)) {
+        fs.mkdirSync(repoDir, { recursive: true });
     }
 
-    const fetch = await git().fetch();
-    s.message(`${info} Pulling latest changes from remote`);
-    await git().pull();
+    // Clone into the current directory (.) so the repo is at repoDir
+    if (!fs.existsSync(path.join(repoDir, ".git"))) {
+        s.message(`${info} Cloning boilerplates repo to ${repoDir}`);
+        await git.clone("https://github.com/Glazeen/.boilerplates", ".");
+    } else {
+        const fetch = await git.fetch();
+        if (fetch.updated.length > 0) {
+            s.message(`${info} Pulling latest changes from remote`);
+            await git.pull();
+        }
+    }
 
     s.stop(`${info} Cache initialized.`);
 };
