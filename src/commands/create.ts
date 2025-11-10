@@ -84,9 +84,6 @@ const handler = async (projectName: string) => {
     }
     COMMAND_POOL.push(...(template?.config.post_create || []));
     COMMAND_POOL.push(...commands.map((command) => ({ command })));
-
-    console.log(JSON.stringify(COMMAND_POOL, null, 2));
-
     await tasks([
         {
             title: "Copying files",
