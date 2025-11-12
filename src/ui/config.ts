@@ -2,6 +2,7 @@
 export interface OutputConfig {
     verbosity: "minimal" | "normal" | "verbose" | "debug";
     terminalWidth: number;
+    nextSteps?: string[];
 }
 
 export const defaultConfig: OutputConfig = {

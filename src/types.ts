@@ -39,4 +39,5 @@ interface GlazeenConfig {
         command: string;
         response_message: string;
     }[];
+    next_steps?: string[];
 }

@@ -30,6 +30,10 @@ export const logger = {
         console.log(`${chalk.magenta("v")} ${message}`);
         return this;
     },
+    log(message: string) {
+        console.log(message);
+        return this;
+    },
     info(message: string) {
         console.log(`${chalk.cyan("i")} ${message}`);
         return this;

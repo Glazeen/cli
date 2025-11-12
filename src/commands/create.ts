@@ -1,11 +1,10 @@
 import path from "path";
 import { Command } from "commander";
-import { log, select, text, confirm } from "@clack/prompts";
+import { select } from "@clack/prompts";
 import { getTemplates } from "../lib/cache";
 import { COMMAND_POOL, runPostCreateActions } from "../lib/postprocessor";
 import { scaffold } from "../lib/scaffolding-engine";
-import { logger } from "../ui";
-import chalk from "chalk";
+import { configureOutput, logger, showFinalSummary } from "../ui";
 import { prompter } from "../ui/prompter";
 
 const commandConfiguration = {
@@ -14,6 +13,8 @@ const commandConfiguration = {
 };
 
 const handler = async (projectName: string) => {
+    const startTime = process.hrtime();
+
     const templates = await getTemplates();
 
     const selectedTemplate = await select({
@@ -28,6 +29,10 @@ const handler = async (projectName: string) => {
     const template = templates.find(
         (template) => template.config.name === selectedTemplate
     );
+
+    configureOutput({
+        nextSteps: template?.config.next_steps || []
+    });
 
     const config = template?.config;
 
@@ -53,7 +58,14 @@ const handler = async (projectName: string) => {
 
     await runPostCreateActions(path.join(process.cwd(), projectName));
 
-    logger.success(`Project ${chalk.bold(projectName)} created successfully!`);
+    showFinalSummary({
+        executionTime: startTime,
+        commands: COMMAND_POOL.map((command) => ({
+            name: command.command,
+            startTime: process.hrtime()
+        })),
+        projectName
+    });
 };
 
 export function register(program: Command) {
