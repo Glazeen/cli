@@ -1,10 +1,11 @@
+import path from "path";
 import { Command } from "commander";
-import { success, bold } from "../utils/styling";
-import { log, select, text, confirm, tasks } from "@clack/prompts";
+import { log, select, text, confirm } from "@clack/prompts";
 import { getTemplates } from "../lib/cache";
 import { COMMAND_POOL, runPostCreateActions } from "../lib/postprocessor";
 import { scaffold } from "../lib/scaffolding-engine";
-import path from "path";
+import { logger } from "../ui";
+import chalk from "chalk";
 
 const commandConfiguration = {
     name: "create",
@@ -84,28 +85,16 @@ const handler = async (projectName: string) => {
     }
     COMMAND_POOL.push(...(template?.config.post_create || []));
     COMMAND_POOL.push(...commands.map((command) => ({ command })));
-    await tasks([
-        {
-            title: "Copying files",
-            task: async () => {
-                await scaffold(
-                    template?.path || "",
-                    path.join(process.cwd(), projectName),
-                    variables
-                );
-            }
-        },
-        {
-            title: "Running post-create actions",
-            task: async () => {
-                await runPostCreateActions(
-                    path.join(process.cwd(), projectName)
-                );
-            }
-        }
-    ]);
+    await scaffold(
+        template?.path || "",
+        path.join(process.cwd(), projectName),
+        variables
+    );
+    logger.success("Template files copied");
 
-    log.info(`${success} Project ${bold(projectName)} created successfully!`);
+    await runPostCreateActions(path.join(process.cwd(), projectName));
+
+    logger.success(`Project ${chalk.bold(projectName)} created successfully!`);
 };
 
 export function register(program: Command) {
