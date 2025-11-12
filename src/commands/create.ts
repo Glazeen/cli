@@ -6,6 +6,7 @@ import { COMMAND_POOL, runPostCreateActions } from "../lib/postprocessor";
 import { scaffold } from "../lib/scaffolding-engine";
 import { logger } from "../ui";
 import chalk from "chalk";
+import { prompter } from "../ui/prompter";
 
 const commandConfiguration = {
     name: "create",
@@ -34,57 +35,15 @@ const handler = async (projectName: string) => {
     const commands: string[] = [];
 
     for (let prompt of config?.prompts || []) {
-        let response;
-        switch (prompt.type) {
-            case "text":
-                response = await text({
-                    message: prompt.message,
-                    defaultValue: prompt.default,
-                    placeholder: prompt.default
-                });
+        const { commands: cmds, variables: vars } = await prompter(prompt);
 
-                variables[prompt.key!] = response as string;
-                break;
-
-            case "confirm":
-                response = await confirm({
-                    message: prompt.message
-                });
-
-                if (response) {
-                    if (
-                        prompt.choices?.Yes &&
-                        prompt.choices?.Yes?.length > 0
-                    ) {
-                        typeof prompt.choices?.Yes === "string"
-                            ? commands.push(prompt.choices.Yes)
-                            : commands.push(...(prompt.choices?.Yes || []));
-                    }
-
-                    variables[prompt.key!] = "Yes";
-                } else {
-                    if (prompt.choices?.No && prompt.choices?.No?.length > 0) {
-                        typeof prompt.choices?.No === "string"
-                            ? commands.push(prompt.choices.No)
-                            : commands.push(...(prompt.choices?.No || []));
-                    }
-                    variables[prompt.key!] = "No";
-                }
-
-                break;
-
-            // case "select":
-            //     response = await select({
-            //         message: prompt.message,
-            //         options: Object.keys(prompt.choices || {}).map(([key]) => ({
-            //             value: key,
-            //             label: key
-            //         }))
-            //     });
-        }
+        commands.push(...cmds);
+        Object.assign(variables, vars);
     }
+
     COMMAND_POOL.push(...(template?.config.post_create || []));
     COMMAND_POOL.push(...commands.map((command) => ({ command })));
+
     await scaffold(
         template?.path || "",
         path.join(process.cwd(), projectName),
