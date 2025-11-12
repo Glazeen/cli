@@ -1,12 +1,11 @@
 import fs from "fs";
 import path from "path";
-import { spinner } from "@clack/prompts";
-import { info } from "../utils/styling";
 import { GLOBAL_CACHE_PATH } from "../utils/constants";
+import { logger } from "../ui";
 
 export const init = async () => {
-    const s = spinner({ indicator: "timer" });
-    s.start(`${info} Initializing cache`);
+    const spinner = logger.spinner(`📂 Initializing cache`).start();
+
     if (!fs.existsSync(GLOBAL_CACHE_PATH)) {
         fs.mkdirSync(GLOBAL_CACHE_PATH, { recursive: true });
     }
@@ -16,23 +15,22 @@ export const init = async () => {
     if (!fs.existsSync(repoDir)) {
         fs.mkdirSync(repoDir, { recursive: true });
     }
+
     const simpleGit = (await import("simple-git")).default;
     const git = simpleGit({
         baseDir: path.join(GLOBAL_CACHE_PATH, ".boilerplates")
     });
+
     // Clone into the current directory (.) so the repo is at repoDir
     if (!fs.existsSync(path.join(repoDir, ".git"))) {
-        s.message(`${info} Cloning boilerplates repo to ${repoDir}`);
+        spinner.text = `Cloning boilerplates repo into ${repoDir}`;
         await git.clone("https://github.com/Glazeen/.boilerplates", ".");
     } else {
-        const fetch = await git.fetch();
-        if (fetch.updated.length > 0) {
-            s.message(`${info} Pulling latest changes from remote`);
-            await git.pull();
-        }
+        spinner.text = " Pulling latest changes";
+        await git.pull();
     }
 
-    s.stop(`${info} Cache initialized.`);
+    spinner.succeed(`Cache initialized`);
 };
 
 export const getTemplates = async () => {

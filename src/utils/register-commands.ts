@@ -2,8 +2,8 @@ import fs from "fs";
 import path from "path";
 import { pathToFileURL } from "url";
 import { Command } from "commander";
-import { info, bold } from "./styling";
-import { log } from "@clack/prompts";
+import { logger } from "../ui/";
+import chalk from "chalk";
 
 export async function registerAllCommands(program: Command): Promise<void> {
     const isDev = __filename.endsWith(".ts");
@@ -15,6 +15,7 @@ export async function registerAllCommands(program: Command): Promise<void> {
 
     const entries = fs.readdirSync(commandsDir, { withFileTypes: true });
 
+    // logger.info("Loading available commands");
     for (const entry of entries) {
         if (!entry.isFile()) continue;
 
@@ -43,14 +44,14 @@ export async function registerAllCommands(program: Command): Promise<void> {
 
             if (register) {
                 register(program);
-                log.info(
-                    `${info} Loaded command: ${bold(
+                logger.verbose(
+                    `Loaded command: ${chalk.bold.inverse(
                         entry.name.replace(/\.(ts|js)$/, "")
                     )}`
                 );
             }
         } catch (err) {
-            log.error(
+            logger.error(
                 `Failed to load command module "${entry.name}": ${
                     (err as Error).message
                 }`

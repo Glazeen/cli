@@ -1,11 +1,10 @@
-import { log, spinner } from "@clack/prompts";
+import { logger } from "../ui";
 
 export const COMMAND_POOL: { command: string; response_message?: string }[] =
     [];
 
 export const runPostCreateActions = async (cwd: string) => {
-    const s = spinner();
-    s.start("Starting...");
+    const s = logger.spinner("").start();
 
     const [{ execa }, { default: logUpdate }] = await Promise.all([
         import("execa"),
@@ -13,7 +12,7 @@ export const runPostCreateActions = async (cwd: string) => {
     ]);
 
     for (const cmd of COMMAND_POOL) {
-        s.message(`> ${cmd.command} - ${cmd.response_message || "Running"}`);
+        s.text = `> ${cmd.command} - ${cmd.response_message || "Running"}\n`;
 
         const child = execa({ cwd, all: true })`${cmd.command}`;
 
@@ -32,11 +31,7 @@ export const runPostCreateActions = async (cwd: string) => {
 
         await child;
         logUpdate.done();
-
-        if (cmd.response_message) {
-            log.info(cmd.response_message);
-        }
     }
 
-    s.stop("Post create actions completed.");
+    s.succeed("Post create actions completed.");
 };

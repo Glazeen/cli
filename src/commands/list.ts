@@ -1,7 +1,7 @@
 import { Command } from "commander";
-import { bold, info, underline, sectionTitle } from "../utils/styling";
-import { log } from "@clack/prompts";
 import { getTemplates } from "../lib/cache";
+import { logger } from "../ui";
+import chalk from "chalk";
 
 const commandConfiguration = {
     name: "list",
@@ -9,23 +9,27 @@ const commandConfiguration = {
 };
 
 const handler = async () => {
-    log.info(`${info} Fetching available templates...`);
+    const spinner = logger
+        .nl()
+        .spinner("📚 Fetching available templates...")
+        .start();
 
     const templates = await getTemplates();
 
     if (templates.length === 0) {
-        log.error("No templates found.");
+        spinner.fail("❌ No templates found.");
         return;
     }
 
-    const lines = templates.map(
-        (line) =>
-            `👉 ${bold(underline(line.config.name))}\n\t${
-                line.config.description
-            }`
+    const lines = templates.map((tpl) =>
+        [
+            `• ${chalk.bold(chalk.underline(tpl.config.name))}`,
+            `   ${chalk.dim(tpl.config.description)}`
+        ].join("\n")
     );
 
-    log.info(sectionTitle("TEMPLATE LIST") + "\n" + lines.join("\n"));
+    spinner.succeed(`${chalk.bold("Templates List")}\n${lines.join("\n")}`);
+    logger.nl();
 };
 
 export function register(program: Command) {

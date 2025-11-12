@@ -1,6 +1,7 @@
 import fs from "fs-extra";
 import path from "path";
 import Handlebars from "handlebars";
+import { logger } from "../ui";
 
 const CONFIG_FILE = "glazeen.config.json";
 
