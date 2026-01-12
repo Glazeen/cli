@@ -23,7 +23,6 @@ export const logger = {
                 "- A powerful and intuitive CLI for scaffolding modern projects with ease."
             )
         );
-        logger.nl();
     },
     verbose(message: string) {
         if (!shouldShow("verbose")) return this;

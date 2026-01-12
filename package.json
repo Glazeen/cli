@@ -38,7 +38,8 @@
         "handlebars": "^4.7.8",
         "log-update": "^7.0.1",
         "ora": "^9.0.0",
-        "simple-git": "^3.30.0"
+        "simple-git": "^3.30.0",
+        "zod": "^4.3.5"
     },
     "devDependencies": {
         "@types/fs-extra": "^11.0.4",

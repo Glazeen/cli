@@ -8,6 +8,8 @@ import { COMMAND_POOL, runPostCreateActions } from "../lib/postprocessor";
 import { scaffold } from "../lib/scaffolding-engine";
 import { configureOutput, logger, showFinalSummary } from "../ui";
 import { prompter } from "../ui/prompter";
+import { GlazeenConfig, GlazeenConfigSchema } from "../types";
+import chalk from "chalk";
 
 const commandConfiguration = {
     name: "create",
@@ -61,29 +63,47 @@ const handler = async (projectName: string) => {
 
         const simpleGit = (await import("simple-git")).default;
         tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "glazeen-"));
-
-        const spinner = logger.spinner("Cloning repository...").start();
+        console.log(chalk.gray('│'))
+        const spinner = logger.spinner(" Cloning repository...").start();
         try {
             await simpleGit().clone(repoUrl as string, tempDir);
-            spinner.succeed("Repository cloned");
+            spinner.succeed(" Repository cloned");
         } catch (error) {
-            spinner.fail("Failed to clone repository");
+            spinner.fail(" Failed to clone repository");
             logger.error((error as Error).message);
             if (tempDir) await fs.remove(tempDir);
             process.exit(1);
         }
-
+        console.log(chalk.gray('│'))
         const configPath = path.join(tempDir, "glazeen.config.json");
         if (!fs.existsSync(configPath)) {
-            logger.error("Repository does not contain a glazeen.config.json file.");
+            logger.error(" Repository does not contain a glazeen.config.json file.");
             if (tempDir) await fs.remove(tempDir);
             process.exit(1);
         }
 
-        config = JSON.parse(await fs.readFile(configPath, "utf-8"));
-        templatePath = tempDir;
+        try {
+            const configRaw = JSON.parse(await fs.readFile(configPath, "utf-8"));
+            const result = GlazeenConfigSchema.safeParse(configRaw);
 
-        logger.success(`Valid template found: ${config!.name}`);
+            if (!result.success) {
+                logger.error(" Invalid configuration in remote repository (`glazeen.config.json`):");
+                result.error.issues.forEach((issue) => {
+                    logger.error(`    - ${issue.path.join(".")}: ${issue.message}`);
+                });
+                if (tempDir) await fs.remove(tempDir);
+                process.exit(1);
+            }
+
+            config = result.data;
+            templatePath = tempDir;
+
+            logger.success(` Valid template found: ${config.name}`);
+        } catch (error) {
+            logger.error(` Failed to parse glazeen.config.json: ${(error as Error).message}`);
+            if (tempDir) await fs.remove(tempDir);
+            process.exit(1);
+        }
     } else {
         const template = templates.find(
             (template) => template.config.name === selectedTemplate
@@ -93,7 +113,7 @@ const handler = async (projectName: string) => {
     }
 
     if (!config || !templatePath) {
-        logger.error("Template configuration not found.");
+        logger.error(" Template configuration not found.");
         process.exit(1);
     }
 
@@ -119,7 +139,7 @@ const handler = async (projectName: string) => {
         path.join(process.cwd(), projectName),
         variables
     );
-    logger.success("Template files copied");
+    logger.success(" Template files copied");
 
     // Cleanup temp dir if used
     if (tempDir) {

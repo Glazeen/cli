@@ -1,4 +1,5 @@
 import { log, select, text, confirm } from "@clack/prompts";
+import { Prompt } from "../types";
 
 export const prompter = async (prompt: Prompt) => {
     const type = prompt.type;

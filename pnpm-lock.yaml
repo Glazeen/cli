@@ -47,6 +47,9 @@ importers:
       simple-git:
         specifier: ^3.30.0
         version: 3.30.0
+      zod:
+        specifier: ^4.3.5
+        version: 4.3.5
     devDependencies:
       '@types/fs-extra':
         specifier: ^11.0.4
@@ -905,6 +908,9 @@ packages:
     resolution: {integrity: sha512-CzhO+pFNo8ajLM2d2IW/R93ipy99LWjtwblvC1RsoSUMZgyLbYFr221TnSNT7GjGdYui6P459mw9JH/g/zW2ug==}
     engines: {node: '>=18'}
 
+  zod@4.3.5:
+    resolution: {integrity: sha512-k7Nwx6vuWx1IJ9Bjuf4Zt1PEllcwe7cls3VNzm4CQ1/hgtFUK2bRNG3rvnpPUhFjmqJKAKtjV576KnUkHocg/g==}
+
 snapshots:
 
   '@babel/runtime@7.28.4': {}
@@ -1735,3 +1741,5 @@ snapshots:
       strip-ansi: 7.1.2
 
   yoctocolors@2.1.2: {}
+
+  zod@4.3.5: {}

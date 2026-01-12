@@ -25,15 +25,14 @@ async function main() {
 
     // Provide a consistent setup section with multi-line info (verbose)
     logger
-        .nl()
         .verbose(
             [
+                "",
                 "🔧 Preparing environment...",
                 `🧭 Version: ${packageJson.version}`,
-                `📦 Registered commands: ${program.commands.length}`
+                `📦 Registered commands: ${program.commands.length}`,
             ].join("\n")
-        )
-        .nl();
+        ).nl()
 
     // init the cache
     await cache.init();
