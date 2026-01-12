@@ -10,11 +10,27 @@ export async function scaffold(
     targetDir: string,
     variables: Record<string, any>
 ): Promise<void> {
-    Handlebars.registerHelper("eq", (a: string, b: string) => {
+    Handlebars.registerHelper("eq", function (a: unknown, b: unknown, options: any) {
+        if (a === undefined) {
+            const argName = (options.ids && options.ids[0]) || "unknown";
+            throw new Error(`Variable "${argName}" is missing. Did you forget to add it to your prompts?`);
+        }
+        if (b === undefined) {
+            const argName = (options.ids && options.ids[1]) || "unknown";
+            throw new Error(`Variable "${argName}" is missing. Did you forget to add it to your prompts?`);
+        }
         return a === b;
     });
 
-    Handlebars.registerHelper("neq", (a: string, b: string) => {
+    Handlebars.registerHelper("neq", function (a: unknown, b: unknown, options: any) {
+        if (a === undefined) {
+            const argName = (options.ids && options.ids[0]) || "unknown";
+            throw new Error(`Variable "${argName}" is missing. Did you forget to add it to your prompts?`);
+        }
+        if (b === undefined) {
+            const argName = (options.ids && options.ids[1]) || "unknown";
+            throw new Error(`Variable "${argName}" is missing. Did you forget to add it to your prompts?`);
+        }
         return a !== b;
     });
 
@@ -34,11 +50,18 @@ export async function scaffold(
             await scaffold(sourcePath, targetPath, variables); // Recursive call
         } else {
             if (item.name.endsWith(".hbs")) {
-                targetPath = targetPath.slice(0, -4); // Remove .hbs extension
-                const templateContent = await fs.readFile(sourcePath, "utf-8");
-                const template = Handlebars.compile(templateContent);
-                const rendered = template(variables);
-                await fs.writeFile(targetPath, rendered);
+                try {
+                    targetPath = targetPath.slice(0, -4); // Remove .hbs extension
+                    const templateContent = await fs.readFile(sourcePath, "utf-8");
+                    const template = Handlebars.compile(templateContent, { strict: true, trackIds: true } as any);
+                    const rendered = template(variables);
+                    await fs.writeFile(targetPath, rendered);
+                } catch (error) {
+                    const chalk = (await import("chalk")).default;
+                    console.log(chalk.gray('│'))
+                    logger.error(` Error processing template file: ${chalk.yellow(path.basename(sourcePath))}\n${chalk.gray('└')}    ${chalk.gray((error as Error).message)}`);
+                    throw error; // Propagate error to stop scaffolding
+                }
             } else {
                 await fs.copy(sourcePath, targetPath);
             }

@@ -69,12 +69,13 @@ const handler = async (projectName: string) => {
             await simpleGit().clone(repoUrl as string, tempDir);
             spinner.succeed(" Repository cloned");
         } catch (error) {
-            spinner.fail(" Failed to clone repository");
-            logger.error((error as Error).message);
+            spinner.fail(` Failed to clone repository\n${chalk.gray('↳')}  ${chalk.gray((error as Error).message.split('\n').map((item, index) => `${index === 0 ? '' : '\n    '}${item}`).join(''))}`);
             if (tempDir) await fs.remove(tempDir);
             process.exit(1);
         }
+        
         console.log(chalk.gray('│'))
+
         const configPath = path.join(tempDir, "glazeen.config.json");
         if (!fs.existsSync(configPath)) {
             logger.error(" Repository does not contain a glazeen.config.json file.");
@@ -134,11 +135,17 @@ const handler = async (projectName: string) => {
     COMMAND_POOL.push(...(config.post_create || []));
     COMMAND_POOL.push(...commands.map((command) => ({ command })));
 
-    await scaffold(
-        templatePath,
-        path.join(process.cwd(), projectName),
-        variables
-    );
+    try {
+        await scaffold(
+            templatePath,
+            path.join(process.cwd(), projectName),
+            variables
+        );
+    } catch (error) {
+        if (tempDir) await fs.remove(tempDir);
+        process.exit(1);
+    }
+
     logger.success(" Template files copied");
 
     // Cleanup temp dir if used
