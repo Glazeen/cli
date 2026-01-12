@@ -1,5 +1,13 @@
 # @glazeen/cli
 
+## 1.4.0
+
+### Minor Changes
+
+- 12a7913: Implement template scaffolding from remote GitHub repo URL for custom glazeen templates
+- 74dadb7: Enhance error handling for glazeen.config.json schema
+- 762a5e9: Improve error handling and messages for undefined handlebars prompt variables
+
 ## 1.3.0
 
 ### Minor Changes
