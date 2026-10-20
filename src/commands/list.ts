@@ -1,40 +1,41 @@
+import * as p from "@clack/prompts";
 import { Command } from "commander";
-import { getTemplates } from "../lib/cache";
-import { logger } from "../ui";
-import chalk from "chalk";
+import path from "path";
+import pc from "picocolors";
+import { defaultCatalog, loadTemplates } from "../lib/catalog";
+import { parseSource } from "../lib/source";
+import { fail } from "../ui";
+import { accent } from "../ui/brand";
 
-const commandConfiguration = {
-    name: "list",
-    description: "Lists all available templates."
-};
-
-const handler = async () => {
-    const spinner = logger
-        .nl()
-        .spinner("📚 Fetching available templates...")
-        .start();
-
-    const templates = await getTemplates();
-
-    if (templates.length === 0) {
-        spinner.fail("❌ No templates found.");
-        return;
+const handler = async (input: string | undefined, { refresh }: { refresh?: boolean }) => {
+    const source = input ? parseSource(input) : defaultCatalog();
+    if (!source) {
+        return fail(
+            `${accent(input!)} is not a valid template source.`,
+            "Use a GitHub repository (owner/repo), a git URL or a local path."
+        );
     }
 
-    const lines = templates.map((tpl) =>
-        [
-            `• ${chalk.bold(chalk.underline(tpl.config.name))}`,
-            `   ${chalk.dim(tpl.config.description)}`
-        ].join("\n")
-    );
+    const templates = await loadTemplates(source, { isDefault: !input, refresh });
 
-    spinner.succeed(`${chalk.bold("Templates List")}\n${lines.join("\n")}`);
-    logger.nl();
+    for (const template of templates) {
+        const folder = path.basename(template.path);
+        const alias = folder !== template.config.name && templates.length > 1 ? pc.dim(` (${folder})`) : "";
+        p.log.message(
+            `${pc.bold(accent(template.config.name))}${alias}` +
+                (template.config.description ? `\n${pc.dim(template.config.description)}` : "")
+        );
+    }
+
+    const example = input ? `-t ${input}` : `-t ${templates[0].config.name}`;
+    p.outro(`Use one with ${accent(`npx glazeen create my-app ${example}`)}`);
 };
 
 export function register(program: Command) {
     program
-        .command(commandConfiguration.name)
-        .description(commandConfiguration.description)
+        .command("list")
+        .description("List the available templates (or the templates in a repository or folder)")
+        .argument("[source]", "GitHub repository (owner/repo), git URL or local path")
+        .option("--refresh", "check for template updates even if the cache is recent")
         .action(handler);
 }

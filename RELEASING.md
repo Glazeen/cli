@@ -30,8 +30,11 @@ This will generate a new markdown file in the `.changeset` directory. This file 
 
 **Example:**
 
-```plaintext
-## "@glazeen/cli": patch
+```markdown
+---
+"@glazeen/cli": patch
+---
+
 Fix a bug in the create command.
 ```
 
@@ -40,8 +43,10 @@ Fix a bug in the create command.
 When it's time to prepare a new release, you'll run the `version` command. This command consumes all the changeset files, updates the package versions in `package.json`, and updates the `CHANGELOG.md` file.
 
 ```bash
-pnpm version
+pnpm run version
 ```
+
+(Use `pnpm run version`, not `pnpm version`. The latter may run pnpm's built-in version command instead of the script.)
 
 This command will:
 
@@ -62,4 +67,29 @@ The `release` script in `package.json` handles building and publishing:
 pnpm release
 ```
 
-This script runs `pnpm build` and then `changeset publish`. `changeset publish` will publish the package to npm and create a new Git tag for the release.
+This script runs `pnpm typecheck` and `pnpm build`, then `changeset publish`. `changeset publish` publishes the package to npm and creates a new Git tag for the release. Push the tag afterwards with `git push --follow-tags`.
+
+## The `glazeen` and `create-glazeen` packages
+
+`packages/glazeen` (`npx glazeen …`) and `packages/create-glazeen` (`npm create glazeen@latest`) are tiny wrappers: their `index.js` imports `@glazeen/cli`, which runs the CLI. They are released together with `@glazeen/cli`, with the same version, and depend on exactly that version. You never edit their versions by hand:
+
+- `pnpm run version` runs `scripts/wrappers.mjs sync` after `changeset version`, which copies the new version into both packages.
+- `pnpm release` runs `scripts/wrappers.mjs publish` after `changeset publish`, which publishes the wrappers whose version isn't on npm yet. It's safe to run again if a publish fails halfway.
+
+Changesets only need to mention `@glazeen/cli`.
+
+## How the package is built
+
+| Script           | What it does                                                                |
+| ---------------- | --------------------------------------------------------------------------- |
+| `pnpm dev`       | Runs the CLI from source with `tsx` (e.g. `pnpm dev create my-app`)          |
+| `pnpm typecheck` | Type-checks with `tsc` (no output files)                                     |
+| `pnpm build`     | Bundles the CLI with esbuild (`scripts/build.mjs`) into `dist/index.js`      |
+
+The build bundles the CLI **and all of its dependencies** into the single file `dist/index.js`. It also writes their licenses to `dist/THIRD-PARTY-LICENSES.txt`. As a result, the published package has no runtime dependencies, and `npx @glazeen/cli` installs and starts quickly.
+
+Because of that:
+
+- **Add every package to `devDependencies`** (`pnpm add -D <pkg>`), including the ones used at runtime. They are bundled at build time.
+- Before publishing, check the package contents with `pnpm pack` and test the result with `npx ./glazeen-cli-<version>.tgz create test-app`.
+- `prepublishOnly` runs the type check and build automatically, so a manual `npm publish` can't publish a stale `dist/`.

@@ -1,51 +1,64 @@
 {
     "name": "@glazeen/cli",
     "version": "1.4.0",
-    "description": "CLI to scaffold Glazeen standard projects",
-    "scripts": {
-        "build": "rm -rf dist && tsc",
-        "dev": "tsx src/index.ts",
-        "start": "node dist/index.js",
-        "prepublishOnly": "pnpm build",
-        "changeset": "changeset",
-        "version": "changeset version",
-        "release": "pnpm build && changeset publish"
-    },
-    "author": "Glazeen",
-    "license": "ISC",
-    "main": "dist/index.js",
-    "types": "dist/index.d.ts",
+    "description": "CLI to scaffold projects from Glazeen templates or your own template repositories",
+    "type": "module",
     "bin": {
         "@glazeen/cli": "dist/index.js",
         "glazeen-cli": "dist/index.js"
     },
+    "exports": {
+        ".": "./dist/index.js",
+        "./package.json": "./package.json"
+    },
     "files": [
         "dist"
     ],
+    "engines": {
+        "node": ">=20.12"
+    },
+    "scripts": {
+        "build": "node scripts/build.mjs",
+        "typecheck": "tsc",
+        "dev": "tsx src/index.ts",
+        "start": "node dist/index.js",
+        "prepublishOnly": "pnpm typecheck && pnpm build",
+        "changeset": "changeset",
+        "version": "changeset version && node scripts/wrappers.mjs sync",
+        "release": "pnpm typecheck && pnpm build && changeset publish && node scripts/wrappers.mjs publish"
+    },
+    "keywords": [
+        "cli",
+        "scaffold",
+        "template",
+        "boilerplate",
+        "generator",
+        "glazeen"
+    ],
+    "author": "Glazeen (https://glazeen.ai)",
+    "homepage": "https://glazeen.ai",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/Glazeen/cli.git"
+    },
+    "bugs": {
+        "url": "https://github.com/Glazeen/cli/issues"
+    },
+    "license": "ISC",
     "publishConfig": {
         "access": "public"
     },
-    "dependencies": {
+    "devDependencies": {
         "@changesets/cli": "^2.29.7",
-        "@clack/prompts": "^0.11.0",
-        "boxen": "^8.0.1",
-        "chalk": "^5.6.2",
+        "@clack/prompts": "^1.8.1",
+        "@types/node": "^24.10.0",
         "commander": "^14.0.2",
         "env-paths": "^3.0.0",
-        "execa": "^9.6.0",
-        "fs-extra": "^11.3.2",
-        "gradient-string": "^3.0.0",
+        "esbuild": "^0.28.2",
         "handlebars": "^4.7.8",
-        "log-update": "^7.0.1",
-        "ora": "^9.0.0",
-        "simple-git": "^3.30.0",
-        "zod": "^4.3.5"
-    },
-    "devDependencies": {
-        "@types/fs-extra": "^11.0.4",
-        "@types/handlebars": "^4.1.0",
-        "@types/node": "^24.10.0",
+        "picocolors": "^1.1.1",
         "tsx": "^4.20.6",
-        "typescript": "^5.9.3"
+        "typescript": "^5.9.3",
+        "zod": "^4.3.5"
     }
 }

@@ -1,18 +1,17 @@
-// tsconfig.json
+// Type-checking only: the build is done by esbuild (scripts/build.mjs)
 {
     "compilerOptions": {
-        "target": "ES2020",
-        "module": "CommonJS",
-        "moduleResolution": "node",
+        "target": "ES2022",
+        "module": "ESNext",
+        "moduleResolution": "Bundler",
         "resolveJsonModule": true,
-        "outDir": "./dist",
-        "rootDir": "./src",
+        "noEmit": true,
         "strict": true,
         "forceConsistentCasingInFileNames": true,
         "skipLibCheck": true,
         "esModuleInterop": true,
-        "declaration": true,
-        "sourceMap": true
+        "isolatedModules": true,
+        "types": ["node"]
     },
     "include": ["src/**/*"],
     "exclude": ["node_modules", "dist"]

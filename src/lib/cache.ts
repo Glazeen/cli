@@ -1,88 +1,76 @@
+import { createHash } from "crypto";
 import fs from "fs";
 import path from "path";
 import { GLOBAL_CACHE_PATH } from "../utils/constants";
-import { logger } from "../ui";
-import { GlazeenConfig, GlazeenConfigSchema } from "../types";
+import { removeOnExit } from "./cleanup";
+import { shallowClone, shallowUpdate } from "./git";
+import { DEFAULT_TEMPLATES_REPO, Source } from "./source";
 
-export const init = async () => {
-    const spinner = logger.spinner(` Initializing cache`).start();
+type GitSource = Extract<Source, { kind: "git" }>;
 
-    if (!fs.existsSync(GLOBAL_CACHE_PATH)) {
-        fs.mkdirSync(GLOBAL_CACHE_PATH, { recursive: true });
+export type SyncResult =
+    | { dir: string; status: "cloned" | "updated" | "fresh" }
+    /** The update failed (e.g. offline) but a previously cached copy is available */
+    | { dir: string; status: "stale"; error: unknown };
+
+const SYNC_MARKER = path.join(".git", "glazeen-last-sync");
+
+const cacheDirFor = (source: GitSource) => {
+    // Keep the historical location for the official catalog so existing caches are reused
+    if (source.url.replace(/\.git$/, "") === DEFAULT_TEMPLATES_REPO && !source.ref) {
+        return path.join(GLOBAL_CACHE_PATH, ".boilerplates");
     }
 
-    // Ensure the repo directory exists before using simple-git
-    const repoDir = path.join(GLOBAL_CACHE_PATH, ".boilerplates");
-    if (!fs.existsSync(repoDir)) {
-        fs.mkdirSync(repoDir, { recursive: true });
-    }
-
-    const simpleGit = (await import("simple-git")).default;
-    const git = simpleGit({
-        baseDir: path.join(GLOBAL_CACHE_PATH, ".boilerplates")
-    });
-
-    // Clone into the current directory (.) so the repo is at repoDir
-    if (!fs.existsSync(path.join(repoDir, ".git"))) {
-        spinner.text = ` Cloning boilerplates repo into ${repoDir}`;
-        await git.clone("https://github.com/Glazeen/.boilerplates", ".");
-    } else {
-        spinner.text = " Pulling latest changes";
-        await git.pull();
-    }
-
-    spinner.succeed(` Cache initialized`);
+    const id = `${source.url}#${source.ref ?? ""}`;
+    const readable = source.url
+        .replace(/^[a-z]+:\/\/|^[\w.-]+@/i, "")
+        .replace(/\.git$/, "")
+        .replace(/[^\w.-]+/g, "-")
+        .slice(-60);
+    const hash = createHash("sha1").update(id).digest("hex").slice(0, 8);
+    return path.join(GLOBAL_CACHE_PATH, `${readable}-${hash}`);
 };
 
-export const getTemplates = async () => {
-    const templatesFolders = fs.readdirSync(
-        path.join(GLOBAL_CACHE_PATH, ".boilerplates"),
-        { withFileTypes: true }
-    );
+const lastSync = (dir: string) => {
+    try {
+        return Number(fs.readFileSync(path.join(dir, SYNC_MARKER), "utf-8")) || 0;
+    } catch {
+        return 0;
+    }
+};
 
-    // filter out the folders that start with a dot
-    const filteredTemplatesFolders = templatesFolders.filter(
-        (item) => item.isDirectory() && item.name !== ".git"
-    );
+const markSynced = (dir: string) => fs.writeFileSync(path.join(dir, SYNC_MARKER), String(Date.now()));
 
-    // map the folders to the config.json file
-    const templates = filteredTemplatesFolders
-        .map((folder) => {
-            const configPath = path.join(
-                GLOBAL_CACHE_PATH,
-                ".boilerplates",
-                folder.name,
-                "glazeen.config.json"
-            );
+/**
+ * Makes sure a shallow clone of `source` exists in the global cache and is up to date.
+ * When `maxAge` is given, a cache synced less than `maxAge` ms ago is used as-is (no network).
+ */
+export const syncRepo = async (source: GitSource, { maxAge = 0 } = {}): Promise<SyncResult> => {
+    const dir = cacheDirFor(source);
 
-            try {
-                const configRaw = JSON.parse(fs.readFileSync(configPath, "utf-8"));
-                const result = GlazeenConfigSchema.safeParse(configRaw);
+    if (fs.existsSync(path.join(dir, ".git"))) {
+        if (maxAge > 0 && Date.now() - lastSync(dir) < maxAge) {
+            return { dir, status: "fresh" };
+        }
+        try {
+            await shallowUpdate(dir, source.ref);
+            markSynced(dir);
+            return { dir, status: "updated" };
+        } catch (error) {
+            return { dir, status: "stale", error };
+        }
+    }
 
-                if (!result.success) {
-                    logger.error(
-                        `Invalid configuration in template "${folder.name}":`
-                    );
-                    result.error.issues.forEach((issue) => {
-                        logger.error(`  - ${issue.path.join(".")}: ${issue.message}`);
-                    });
-                    return null;
-                }
+    // Clone next to the final location and move it in place only when complete,
+    // so an interrupted clone never leaves a broken cache behind.
+    await fs.promises.mkdir(GLOBAL_CACHE_PATH, { recursive: true });
+    const tmp = `${dir}.tmp-${process.pid}`;
+    const keep = removeOnExit(tmp);
+    await shallowClone(source.url, tmp, source.ref);
+    await fs.promises.rm(dir, { recursive: true, force: true });
+    await fs.promises.rename(tmp, dir);
+    keep();
+    markSynced(dir);
 
-                return {
-                    path: path.join(GLOBAL_CACHE_PATH, ".boilerplates", folder.name),
-                    config: result.data
-                };
-            } catch (err) {
-                logger.error(
-                    `Failed to read or parse config for template "${folder.name}": ${
-                        (err as Error).message
-                    }`
-                );
-                return null;
-            }
-        })
-        .filter((t): t is { path: string; config: GlazeenConfig } => t !== null);
-
-    return templates;
+    return { dir, status: "cloned" };
 };

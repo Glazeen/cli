@@ -1,0 +1,38 @@
+{
+    "name": "glazeen",
+    "version": "1.4.0",
+    "description": "The Glazeen CLI: scaffold projects from Glazeen templates or your own (npx glazeen create my-app)",
+    "type": "module",
+    "bin": {
+        "glazeen": "index.js"
+    },
+    "files": [
+        "index.js"
+    ],
+    "engines": {
+        "node": ">=20.12"
+    },
+    "dependencies": {
+        "@glazeen/cli": "1.4.0"
+    },
+    "keywords": [
+        "cli",
+        "scaffold",
+        "template",
+        "glazeen"
+    ],
+    "author": "Glazeen (https://glazeen.ai)",
+    "homepage": "https://glazeen.ai",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/Glazeen/cli.git",
+        "directory": "packages/glazeen"
+    },
+    "bugs": {
+        "url": "https://github.com/Glazeen/cli/issues"
+    },
+    "license": "ISC",
+    "publishConfig": {
+        "access": "public"
+    }
+}

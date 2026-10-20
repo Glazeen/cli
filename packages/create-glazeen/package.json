@@ -1,0 +1,38 @@
+{
+    "name": "create-glazeen",
+    "version": "1.4.0",
+    "description": "Create a new project from a Glazeen template: npm create glazeen@latest",
+    "type": "module",
+    "bin": {
+        "create-glazeen": "index.js"
+    },
+    "files": [
+        "index.js"
+    ],
+    "engines": {
+        "node": ">=20.12"
+    },
+    "dependencies": {
+        "@glazeen/cli": "1.4.0"
+    },
+    "keywords": [
+        "create",
+        "scaffold",
+        "template",
+        "glazeen"
+    ],
+    "author": "Glazeen (https://glazeen.ai)",
+    "homepage": "https://glazeen.ai",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/Glazeen/cli.git",
+        "directory": "packages/create-glazeen"
+    },
+    "bugs": {
+        "url": "https://github.com/Glazeen/cli/issues"
+    },
+    "license": "ISC",
+    "publishConfig": {
+        "access": "public"
+    }
+}

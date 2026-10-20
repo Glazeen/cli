@@ -1,174 +1,188 @@
-import path from "path";
-import fs from "fs-extra";
-import os from "os";
+import * as p from "@clack/prompts";
 import { Command } from "commander";
-import { select, text, isCancel, cancel } from "@clack/prompts";
-import { getTemplates } from "../lib/cache";
-import { COMMAND_POOL, runPostCreateActions } from "../lib/postprocessor";
-import { scaffold } from "../lib/scaffolding-engine";
-import { configureOutput, logger, showFinalSummary } from "../ui";
+import fs from "fs";
+import path from "path";
+import pc from "picocolors";
+import { defaultCatalog, loadTemplates } from "../lib/catalog";
+import { removeOnExit } from "../lib/cleanup";
+import { runPostCreateActions } from "../lib/postprocessor";
+import { scaffold, TemplateRenderError } from "../lib/scaffolding-engine";
+import { parseSource } from "../lib/source";
+import { findTemplate } from "../lib/templates";
+import { PostCreateCommand, Template, TemplateVariables } from "../types";
+import { ensure, fail, formatDuration, shortenPath } from "../ui";
+import { accent } from "../ui/brand";
 import { prompter } from "../ui/prompter";
-import { GlazeenConfig, GlazeenConfigSchema } from "../types";
-import chalk from "chalk";
 
-const commandConfiguration = {
-    name: "create",
-    description: "Create a new Glazeen project"
+interface CreateOptions {
+    template?: string;
+    refresh?: boolean;
+}
+
+const OTHER_SOURCE = "other-source";
+
+const pickTemplate = async (templates: Template[], message = "Which template would you like to use?") => {
+    if (templates.length === 1) return templates[0];
+    return ensure(
+        await p.select({
+            message,
+            options: templates.map((template) => ({
+                value: template,
+                label: template.config.name,
+                hint: template.config.description,
+            })),
+        })
+    );
 };
 
-const handler = async (projectName: string) => {
-    const startTime = process.hrtime();
+const askProjectName = async () =>
+    ensure(
+        await p.text({
+            message: "What is the name of your project?",
+            placeholder: "my-app",
+            validate: (value) => (value?.trim() ? undefined : "Please enter a project name."),
+        })
+    ).trim();
 
-    const templates = await getTemplates();
+/** Asks before writing into a folder that already has content */
+const checkTargetDir = async (targetDir: string) => {
+    const isNonEmpty = fs.existsSync(targetDir) && fs.readdirSync(targetDir).length > 0;
+    if (!isNonEmpty) return;
 
-    const selectedTemplate = await select({
-        message: "What template would you like to use?",
-        options: [
-            ...templates.map((template) => ({
-                value: template.config.name,
-                label: template.config.name,
-                hint: template.config.description
-            })),
-            {
-                value: "github-repo",
-                label: "From GitHub Repository",
-                hint: "Clone a Glazeen-compatible repository"
-            }
-        ]
-    });
-
-    if (isCancel(selectedTemplate)) {
-        cancel("Operation cancelled.");
+    const overwrite = ensure(
+        await p.confirm({
+            message: `${accent(shortenPath(targetDir))} is not empty. Continue and overwrite existing files?`,
+            initialValue: false,
+        })
+    );
+    if (!overwrite) {
+        p.cancel("Operation cancelled.");
         process.exit(0);
     }
+};
 
-    let config: GlazeenConfig | undefined;
-    let templatePath: string | undefined;
-    let tempDir: string | null = null;
-
-    if (selectedTemplate === "github-repo") {
-        const repoUrl = await text({
-            message: "Enter the GitHub repository URL:",
-            placeholder: "https://github.com/username/repo",
-            validate: (value) => {
-                if (!value) return "Please enter a URL.";
-                if (!value.startsWith("http")) return "Please enter a valid URL.";
-            }
-        });
-
-        if (isCancel(repoUrl)) {
-            cancel("Operation cancelled.");
-            process.exit(0);
-        }
-
-        const simpleGit = (await import("simple-git")).default;
-        tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "glazeen-"));
-        console.log(chalk.gray('│'))
-        const spinner = logger.spinner(" Cloning repository...").start();
-        try {
-            await simpleGit().clone(repoUrl as string, tempDir);
-            spinner.succeed(" Repository cloned");
-        } catch (error) {
-            spinner.fail(` Failed to clone repository\n${chalk.gray('↳')}  ${chalk.gray((error as Error).message.split('\n').map((item, index) => `${index === 0 ? '' : '\n    '}${item}`).join(''))}`);
-            if (tempDir) await fs.remove(tempDir);
-            process.exit(1);
-        }
-        
-        console.log(chalk.gray('│'))
-
-        const configPath = path.join(tempDir, "glazeen.config.json");
-        if (!fs.existsSync(configPath)) {
-            logger.error(" Repository does not contain a glazeen.config.json file.");
-            if (tempDir) await fs.remove(tempDir);
-            process.exit(1);
-        }
-
-        try {
-            const configRaw = JSON.parse(await fs.readFile(configPath, "utf-8"));
-            const result = GlazeenConfigSchema.safeParse(configRaw);
-
-            if (!result.success) {
-                logger.error(" Invalid configuration in remote repository (`glazeen.config.json`):");
-                result.error.issues.forEach((issue) => {
-                    logger.error(`    - ${issue.path.join(".")}: ${issue.message}`);
-                });
-                if (tempDir) await fs.remove(tempDir);
-                process.exit(1);
-            }
-
-            config = result.data;
-            templatePath = tempDir;
-
-            logger.success(` Valid template found: ${config.name}`);
-        } catch (error) {
-            logger.error(` Failed to parse glazeen.config.json: ${(error as Error).message}`);
-            if (tempDir) await fs.remove(tempDir);
-            process.exit(1);
-        }
-    } else {
-        const template = templates.find(
-            (template) => template.config.name === selectedTemplate
-        );
-        config = template?.config;
-        templatePath = template?.path;
+const resolveTemplate = async ({ template: input, refresh }: CreateOptions): Promise<Template> => {
+    // -t <source>: a GitHub repo, git URL or local folder
+    const source = input ? parseSource(input) : null;
+    if (source) {
+        return pickTemplate(await loadTemplates(source));
     }
 
-    if (!config || !templatePath) {
-        logger.error(" Template configuration not found.");
-        process.exit(1);
+    const templates = await loadTemplates(defaultCatalog(), { isDefault: true, refresh });
+
+    // -t <name>: a template from the default catalog
+    if (input) {
+        const template = findTemplate(templates, input);
+        if (!template) {
+            fail(
+                `Template ${accent(input)} not found.`,
+                `Available templates: ${templates.map((t) => t.config.name).join(", ")}`
+            );
+        }
+        return template!;
     }
 
-    configureOutput({
-        nextSteps: config.next_steps || []
-    });
+    const choice = ensure(
+        await p.select<Template | typeof OTHER_SOURCE>({
+            message: "Which template would you like to use?",
+            options: [
+                ...templates.map((template) => ({
+                    value: template,
+                    label: template.config.name,
+                    hint: template.config.description,
+                })),
+                {
+                    value: OTHER_SOURCE,
+                    label: "Other source…",
+                    hint: "a GitHub repository, git URL or local folder",
+                },
+            ],
+        })
+    );
+    if (choice !== OTHER_SOURCE) return choice;
 
-    const variables: Record<string, string> = {};
-    const commands: string[] = [];
+    const sourceInput = ensure(
+        await p.text({
+            message: "Where is the template?",
+            placeholder: "owner/repo, https://github.com/owner/repo or ./path/to/template",
+            validate: (value) =>
+                parseSource(value ?? "") ? undefined : "Enter a GitHub repository, a git URL or a local path.",
+        })
+    );
+    return pickTemplate(await loadTemplates(parseSource(sourceInput)!));
+};
 
-    for (let prompt of config.prompts || []) {
-        const { commands: cmds, variables: vars } = await prompter(prompt);
+const handler = async (projectArg: string | undefined, options: CreateOptions) => {
+    const startedAt = performance.now();
 
-        commands.push(...cmds);
-        Object.assign(variables, vars);
+    const projectName = projectArg?.trim() || (await askProjectName());
+    const targetDir = path.resolve(projectName);
+    await checkTargetDir(targetDir);
+
+    const template = await resolveTemplate(options);
+    const { config } = template;
+
+    const variables: TemplateVariables = {};
+    const promptCommands: PostCreateCommand[] = [];
+    const skippedFiles = new Set<string>();
+    for (const prompt of config.prompts) {
+        const result = await prompter(prompt);
+        Object.assign(variables, result.variables);
+        promptCommands.push(...result.commands);
+        result.skippedFiles.forEach((file) => skippedFiles.add(file));
     }
 
-    COMMAND_POOL.push(...(config.post_create || []));
-    COMMAND_POOL.push(...commands.map((command) => ({ command })));
+    // Remove a half-created project if anything fails before the files are in place
+    const keepTarget = fs.existsSync(targetDir) ? () => {} : removeOnExit(targetDir);
 
+    const spinner = p.spinner();
+    spinner.start("Creating project files");
+    let fileCount: number;
     try {
-        await scaffold(
-            templatePath,
-            path.join(process.cwd(), projectName),
-            variables
-        );
+        fileCount = await scaffold(template.path, targetDir, variables, skippedFiles);
     } catch (error) {
-        if (tempDir) await fs.remove(tempDir);
-        process.exit(1);
+        spinner.error("Could not create the project files");
+        if (error instanceof TemplateRenderError) {
+            return fail(`Error in template file ${pc.yellow(error.file)}`, error.reason.message);
+        }
+        return fail((error as Error).message);
+    }
+    keepTarget();
+    spinner.stop(`Created ${fileCount} files in ${accent(shortenPath(targetDir))}`);
+
+    const commands = [...config.post_create, ...promptCommands];
+    const results = await runPostCreateActions(commands, targetDir);
+    const failed = results.find((result) => result.exitCode !== 0);
+
+    const relativeDir = path.relative(process.cwd(), targetDir);
+    const nextSteps = [
+        ...(relativeDir ? [`cd ${/\s/.test(relativeDir) ? `"${relativeDir}"` : relativeDir}`] : []),
+        // Commands that did not complete must be run by hand
+        ...(failed ? commands.slice(results.length - 1).map((c) => c.command) : []),
+        ...config.next_steps,
+    ];
+    if (nextSteps.length) {
+        p.note(nextSteps.map((step, i) => `${pc.dim(`${i + 1}.`)} ${step}`).join("\n"), "Next steps");
     }
 
-    logger.success(" Template files copied");
-
-    // Cleanup temp dir if used
-    if (tempDir) {
-        await fs.remove(tempDir);
+    const elapsed = pc.dim(`in ${formatDuration(performance.now() - startedAt)}`);
+    if (failed) {
+        p.outro(pc.yellow("Project created, but a setup command failed. Run the remaining steps manually."));
+        process.exitCode = 1;
+        return;
     }
-
-    await runPostCreateActions(path.join(process.cwd(), projectName));
-
-    showFinalSummary({
-        executionTime: startTime,
-        commands: COMMAND_POOL.map((command) => ({
-            name: command.command,
-            startTime: process.hrtime()
-        })),
-        projectName
-    });
+    p.outro(`${pc.green("Done!")} ${pc.bold(path.basename(targetDir))} is ready ${elapsed}`);
 };
 
 export function register(program: Command) {
     program
-        .command(commandConfiguration.name)
-        .description(commandConfiguration.description)
-        .argument("<project-name>", "The name of the project to create.")
-        .action((args) => handler(args).then(() => process.exit(0)));
+        .command("create")
+        .description("Create a new project from a template")
+        .argument("[project-name]", "name of the folder to create the project in")
+        .option(
+            "-t, --template <template>",
+            "template name, GitHub repository (owner/repo), git URL or local path"
+        )
+        .option("--refresh", "check for template updates even if the cache is recent")
+        .action(handler);
 }
