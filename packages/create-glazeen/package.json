@@ -1,6 +1,6 @@
 {
     "name": "create-glazeen",
-    "version": "1.4.0",
+    "version": "1.5.0",
     "description": "Create a new project from a Glazeen template: npm create glazeen@latest",
     "type": "module",
     "bin": {
@@ -13,7 +13,7 @@
         "node": ">=20.12"
     },
     "dependencies": {
-        "@glazeen/cli": "1.4.0"
+        "@glazeen/cli": "1.5.0"
     },
     "keywords": [
         "create",

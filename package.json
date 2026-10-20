@@ -1,6 +1,6 @@
 {
     "name": "@glazeen/cli",
-    "version": "1.4.0",
+    "version": "1.5.0",
     "description": "CLI to scaffold projects from Glazeen templates or your own template repositories",
     "type": "module",
     "bin": {
